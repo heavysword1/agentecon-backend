@@ -10,6 +10,7 @@ const inflationRouter = require('./routes/inflation');
 const jobsRouter = require('./routes/jobs');
 const macroRouter = require('./routes/macro');
 const energyRouter = require('./routes/energy');
+const mcpRouter = require('./routes/mcp');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -127,6 +128,7 @@ app.use('/x402/econ/inflation', inflationRouter);
 app.use('/x402/econ/jobs', jobsRouter);
 app.use('/x402/econ/macro', macroRouter);
 app.use('/x402/econ/energy', energyRouter);
+app.use('/mcp', mcpRouter);
 app.use((req, res) => res.status(404).json({ error: 'Not found', service: 'AgentEcon' }));
 
 app.listen(PORT, () => console.log(`AgentEcon running on port ${PORT}`));
