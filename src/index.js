@@ -11,6 +11,7 @@ const jobsRouter = require('./routes/jobs');
 const macroRouter = require('./routes/macro');
 const energyRouter = require('./routes/energy');
 const mcpRouter = require('./routes/mcp');
+const treasuryRouter = require('./routes/treasury');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -97,6 +98,22 @@ try {
           output: { example: { success: true, series: 'gdp', description: 'Gross Domestic Product (Billions USD)', latest_value: 29450.2, latest_date: '2026-01-01', change: 320.5 } }
         }}}
       },
+      'GET /x402/econ/treasury': {
+        accepts: [{ scheme: 'exact', price: '$0.001', network: X402_NETWORK, payTo: PAY_TO }],
+        description: 'U.S. Treasury data — national debt (daily) and average interest rates on Treasury securities.',
+        extensions: { bazaar: { info: {
+          description: 'U.S. Treasury fiscal data. National debt to the penny (daily updates) and average interest rates on Treasury securities.',
+          input: { type: 'http', method: 'GET',
+            queryParams: { series: 'debt', limit: '10' },
+            schema: { properties: {
+              series: { type: 'string', description: 'debt (national debt to the penny) or interest_rates (avg Treasury rates)' },
+              limit: { type: 'string', description: 'Number of records' }
+            }, required: [] }
+          },
+          output: { example: { success: true, series: 'debt', latest_date: '2026-05-21', total_debt_trillions: 39.07, daily_change_usd: 21560524703 } }
+        }}}
+      },
+
       'GET /x402/econ/energy': {
         accepts: [{ scheme: 'exact', price: '$0.001', network: X402_NETWORK, payTo: PAY_TO }],
         description: 'Energy price data from EIA. WTI crude oil, Brent crude, natural gas (Henry Hub), and U.S. retail gasoline prices.',
@@ -128,6 +145,7 @@ app.use('/x402/econ/inflation', inflationRouter);
 app.use('/x402/econ/jobs', jobsRouter);
 app.use('/x402/econ/macro', macroRouter);
 app.use('/x402/econ/energy', energyRouter);
+app.use('/x402/econ/treasury', treasuryRouter);
 app.use('/mcp', mcpRouter);
 app.use((req, res) => res.status(404).json({ error: 'Not found', service: 'AgentEcon' }));
 
