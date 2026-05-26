@@ -1,0 +1,11 @@
+{
+  "openapi": "3.0.0",
+  "info": { "title": "AgentEcon — Economic Intelligence for AI Agents", "version": "1.0.0", "description": "x402-powered economic data API. CPI inflation, labor market, GDP, Treasury yields, and energy prices. Pay per query in USDC on Base mainnet.", "contact": { "url": "https://econ.memoryapi.org" } },
+  "servers": [{ "url": "https://econ.memoryapi.org" }],
+  "paths": {
+    "/x402/econ/inflation": { "get": { "summary": "CPI inflation data", "description": "U.S. Consumer Price Index from BLS. YoY and MoM changes.", "parameters": [{ "name": "series", "in": "query", "schema": { "type": "string", "default": "all_items", "enum": ["all_items","core","food","energy","shelter","medical"] } }, { "name": "months", "in": "query", "schema": { "type": "integer", "default": 13 } }], "responses": { "200": { "description": "CPI data" }, "402": { "description": "x402 payment required" } } } },
+    "/x402/econ/jobs": { "get": { "summary": "Labor market data", "description": "U.S. labor market from BLS. Unemployment, payrolls, JOLTS, wages.", "parameters": [{ "name": "series", "in": "query", "schema": { "type": "string", "default": "unemployment_rate", "enum": ["unemployment_rate","nonfarm_payrolls","labor_force_participation","job_openings","quits_rate","avg_hourly_earnings"] } }], "responses": { "200": { "description": "Labor data" }, "402": { "description": "x402 payment required" } } } },
+    "/x402/econ/macro": { "get": { "summary": "Macroeconomic indicators", "description": "GDP, Fed rate, Treasury yields from FRED.", "parameters": [{ "name": "series", "in": "query", "schema": { "type": "string", "default": "gdp", "enum": ["gdp","fed_funds_rate","treasury_10y","treasury_2y","yield_curve","housing_starts","retail_sales","consumer_sentiment","m2_money_supply","industrial_production"] } }], "responses": { "200": { "description": "Macro data" }, "402": { "description": "x402 payment required" } } } },
+    "/x402/econ/energy": { "get": { "summary": "Energy prices", "description": "WTI crude, Brent, natural gas, gasoline from EIA.", "parameters": [{ "name": "series", "in": "query", "schema": { "type": "string", "default": "wti_crude", "enum": ["wti_crude","brent_crude","natural_gas","gasoline"] } }], "responses": { "200": { "description": "Energy price data" }, "402": { "description": "x402 payment required" } } } }
+  }
+}
