@@ -11,6 +11,7 @@ const jobsRouter = require('./routes/jobs');
 const macroRouter = require('./routes/macro');
 const energyRouter = require('./routes/energy');
 const mcpRouter = require('./routes/mcp');
+const demographicsRouter = require('./routes/demographics');
 const treasuryRouter = require('./routes/treasury');
 
 const app = express();
@@ -98,6 +99,22 @@ try {
           output: { example: { success: true, series: 'gdp', description: 'Gross Domestic Product (Billions USD)', latest_value: 29450.2, latest_date: '2026-01-01', change: 320.5 } }
         }}}
       },
+      'GET /x402/econ/demographics': {
+        accepts: [{ scheme: 'exact', price: '$0.001', network: X402_NETWORK, payTo: PAY_TO }],
+        description: 'U.S. Census demographic data by state or county. Population, income, poverty, unemployment, home values, education.',
+        extensions: { bazaar: { info: {
+          description: 'U.S. Census ACS demographic data. Population, median income, poverty rate, unemployment, home values, and education by state or county.',
+          input: { type: 'http', method: 'GET',
+            queryParams: { state: 'CA', level: 'state' },
+            schema: { properties: {
+              state: { type: 'string', description: '2-letter state code (CA, TX, NY) or omit for all states' },
+              level: { type: 'string', description: 'state (default) or county' }
+            }, required: [] }
+          },
+          output: { example: { success: true, data: [{ name: 'California', population: 39538223, median_household_income: 84097, poverty_rate_pct: 12.3, unemployment_rate_pct: 7.8, median_home_value: 538500 }] } }
+        }}}
+      },
+
       'GET /x402/econ/treasury': {
         accepts: [{ scheme: 'exact', price: '$0.001', network: X402_NETWORK, payTo: PAY_TO }],
         description: 'U.S. Treasury data — national debt (daily) and average interest rates on Treasury securities.',
@@ -145,6 +162,7 @@ app.use('/x402/econ/inflation', inflationRouter);
 app.use('/x402/econ/jobs', jobsRouter);
 app.use('/x402/econ/macro', macroRouter);
 app.use('/x402/econ/energy', energyRouter);
+app.use('/x402/econ/demographics', demographicsRouter);
 app.use('/x402/econ/treasury', treasuryRouter);
 app.use('/mcp', mcpRouter);
 app.use((req, res) => res.status(404).json({ error: 'Not found', service: 'AgentEcon' }));
