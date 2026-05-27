@@ -95,6 +95,19 @@ const TOOLS = [
       }
     }
   }
+,
+  {
+    name: 'get_business_patterns',
+    description: 'U.S. County Business Patterns — number of businesses (establishments), employees, and payroll by industry (NAICS code) and state. Answers: How many tech companies in California? Total healthcare employees in Texas?',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        naics: { type: 'string', description: 'NAICS industry code: 51=Tech/Info, 52=Finance, 53=Real Estate, 54=Professional Services, 62=Healthcare, 23=Construction, 44=Retail, 72=Food/Hospitality', default: '51' },
+        state: { type: 'string', description: '2-letter state code (CA, TX, NY). Omit for all states.' },
+        year: { type: 'string', description: 'Data year (default: 2021)', default: '2021' }
+      }
+    }
+  }
 ];
 
 async function executeTool(name, args) {
@@ -177,12 +190,27 @@ async function executeTool(name, args) {
       const results = rows.map(row => { const obj={}; headers.forEach((h,i)=>obj[h]=row[i]); return { name:obj.NAME, population:parseInt(obj['B01001_001E']), median_age:parseFloat(obj['B01002_001E']), median_household_income:parseInt(obj['B19013_001E']), per_capita_income:parseInt(obj['B19301_001E']), median_home_value:parseInt(obj['B25077_001E']), median_rent:parseInt(obj['B25064_001E']) }; });
       return { success:true, year:'2022 ACS 5-Year', count:results.length, data:results, source:'U.S. Census Bureau' };
     }
+
+    case 'get_business_patterns': {
+      const CENSUS_KEY = process.env.CENSUS_API_KEY;
+      if (!CENSUS_KEY) return { error: 'Census API key not configured' };
+      const { naics = '51', state, year = '2021' } = args;
+      const STATE_FIPS = {'AL':'01','AK':'02','AZ':'04','AR':'05','CA':'06','CO':'08','CT':'09','DE':'10','FL':'12','GA':'13','HI':'15','ID':'16','IL':'17','IN':'18','IA':'19','KS':'20','KY':'21','LA':'22','ME':'23','MD':'24','MA':'25','MI':'26','MN':'27','MS':'28','MO':'29','MT':'30','NE':'31','NV':'32','NH':'33','NJ':'34','NM':'35','NY':'36','NC':'37','ND':'38','OH':'39','OK':'40','OR':'41','PA':'42','RI':'44','SC':'45','SD':'46','TN':'47','TX':'48','UT':'49','VT':'50','VA':'51','WA':'53','WV':'54','WI':'55','WY':'56','DC':'11'};
+      const fipsToState = Object.entries(STATE_FIPS).reduce((a,[k,v])=>{a[v]=k;return a;},{});
+      const fips = state ? (STATE_FIPS[state.toUpperCase()]||state) : '*';
+      const { data } = await axios.get(`https://api.census.gov/data/${year}/cbp`, { params: { get:'NAICS2017,NAICS2017_LABEL,ESTAB,EMP,PAYANN', for: fips==='*'?'state:*':`state:${fips}`, key:CENSUS_KEY, NAICS2017:naics }, timeout:15000 });
+      const [headers,...rows] = data;
+      const results = rows.map(row=>{ const o={}; headers.forEach((h,i)=>o[h]=row[i]); return { state:fipsToState[o.state]||o.state, industry:o.NAICS2017_LABEL||naics, establishments:parseInt(o.ESTAB)||0, employees:parseInt(o.EMP)||0, avg_salary:o.EMP>0?Math.round((parseInt(o.PAYANN)*1000)/parseInt(o.EMP)):null }; }).filter(r=>r.establishments>0).sort((a,b)=>b.employees-a.employees);
+      const totalEstab = results.reduce((s,r)=>s+r.establishments,0);
+      const totalEmp = results.reduce((s,r)=>s+r.employees,0);
+      return { success:true, year, naics_code:naics, industry:results[0]?.industry, state_filter:state||'All States', totals:{ establishments:totalEstab, employees:totalEmp }, top_states:results.slice(0,10), source:'U.S. Census Bureau — County Business Patterns' };
+    }
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
 
 router.get('/', (req, res) => {
-  res.json({ name: 'AgentEcon', version: '1.0.0', transport: 'http', protocol: 'mcp', tools: ['get_inflation', 'get_jobs', 'get_macro', 'get_energy', 'get_treasury', 'get_demographics'] });
+  res.json({ name: 'AgentEcon', version: '1.0.0', transport: 'http', protocol: 'mcp', tools: ['get_inflation', 'get_jobs', 'get_macro', 'get_energy', 'get_treasury', 'get_demographics', 'get_business_patterns'] });
 });
 
 router.post('/', async (req, res) => {

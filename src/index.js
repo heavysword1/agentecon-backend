@@ -11,6 +11,7 @@ const jobsRouter = require('./routes/jobs');
 const macroRouter = require('./routes/macro');
 const energyRouter = require('./routes/energy');
 const mcpRouter = require('./routes/mcp');
+const businessRouter = require('./routes/business');
 const demographicsRouter = require('./routes/demographics');
 const treasuryRouter = require('./routes/treasury');
 
@@ -99,6 +100,23 @@ try {
           output: { example: { success: true, series: 'gdp', description: 'Gross Domestic Product (Billions USD)', latest_value: 29450.2, latest_date: '2026-01-01', change: 320.5 } }
         }}}
       },
+      'GET /x402/econ/business': {
+        accepts: [{ scheme: 'exact', price: '$0.001', network: X402_NETWORK, payTo: PAY_TO }],
+        description: 'U.S. County Business Patterns — number of businesses, employees, and payroll by industry (NAICS) and state.',
+        extensions: { bazaar: { info: {
+          description: 'U.S. County Business Patterns from Census. Returns business counts, employee totals, and payroll by industry and state.',
+          input: { type: 'http', method: 'GET',
+            queryParams: { naics: '51', state: 'CA', year: '2021' },
+            schema: { properties: {
+              naics: { type: 'string', description: 'NAICS industry code: 51=Tech, 52=Finance, 53=Real Estate, 54=Professional, 62=Healthcare, 23=Construction' },
+              state: { type: 'string', description: '2-letter state code. Omit for all states.' },
+              year: { type: 'string', description: 'Data year (default 2021)' }
+            }, required: [] }
+          },
+          output: { example: { success: true, naics_code: '51', industry: 'Information/Technology', totals: { establishments: 156234, employees: 4521000 }, top_states: [{ state: 'CA', establishments: 28906, employees: 1209148, avg_salary: 256123 }] } }
+        }}}
+      },
+
       'GET /x402/econ/demographics': {
         accepts: [{ scheme: 'exact', price: '$0.001', network: X402_NETWORK, payTo: PAY_TO }],
         description: 'U.S. Census demographic data by state or county. Population, income, poverty, unemployment, home values, education.',
@@ -162,6 +180,7 @@ app.use('/x402/econ/inflation', inflationRouter);
 app.use('/x402/econ/jobs', jobsRouter);
 app.use('/x402/econ/macro', macroRouter);
 app.use('/x402/econ/energy', energyRouter);
+app.use('/x402/econ/business', businessRouter);
 app.use('/x402/econ/demographics', demographicsRouter);
 app.use('/x402/econ/treasury', treasuryRouter);
 app.use('/mcp', mcpRouter);
