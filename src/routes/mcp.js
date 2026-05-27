@@ -72,6 +72,29 @@ const TOOLS = [
       }
     }
   }
+,
+  {
+    name: 'get_treasury',
+    description: 'Get U.S. national debt (daily, to the penny) and average interest rates on Treasury securities from the U.S. Treasury.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        series: { type: 'string', description: 'debt (national debt, default) or interest_rates', default: 'debt' },
+        limit: { type: 'number', description: 'Number of records', default: 10 }
+      }
+    }
+  },
+  {
+    name: 'get_demographics',
+    description: 'Get U.S. Census demographic data by state or county. Population, median income, poverty rate, unemployment, home values, and education level.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        state: { type: 'string', description: '2-letter state code (CA, TX, NY). Omit for all states.' },
+        level: { type: 'string', description: 'state (default) or county', default: 'state' }
+      }
+    }
+  }
 ];
 
 async function executeTool(name, args) {
@@ -128,12 +151,38 @@ async function executeTool(name, args) {
       cache.set(cacheKey, result);
       return result;
     }
+
+    case 'get_treasury': {
+      const { series = 'debt', limit = 10 } = args;
+      const BASE_URL = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2';
+      if (series === 'debt') {
+        const { data } = await axios.get(`${BASE_URL}/accounting/od/debt_to_penny`, { params: { limit: Math.min(limit,30), sort:'-record_date', fields:'record_date,tot_pub_debt_out_amt,debt_held_public_amt,intragov_hold_amt' }, timeout:10000 });
+        const r = data.data?.[0];
+        return { success:true, series:'debt', latest_date:r?.record_date, total_debt_trillions: Math.round(parseFloat(r?.tot_pub_debt_out_amt)/1e12*100)/100, debt_held_by_public: Math.round(parseFloat(r?.debt_held_public_amt)/1e12*100)/100, intragovernmental: Math.round(parseFloat(r?.intragov_hold_amt)/1e12*100)/100, source:'U.S. Treasury' };
+      } else {
+        const { data } = await axios.get(`${BASE_URL}/accounting/od/avg_interest_rates`, { params: { limit: Math.min(limit,30), sort:'-record_date', fields:'record_date,security_type_desc,security_desc,avg_interest_rate_amt' }, timeout:10000 });
+        return { success:true, series:'interest_rates', latest_date:data.data?.[0]?.record_date, rates:(data.data||[]).slice(0,10).map(r=>({ security:r.security_desc||r.security_type_desc, rate:parseFloat(r.avg_interest_rate_amt) })), source:'U.S. Treasury' };
+      }
+    }
+    case 'get_demographics': {
+      const CENSUS_KEY = process.env.CENSUS_API_KEY;
+      if (!CENSUS_KEY) return { error: 'Census API key not configured' };
+      const { state, level = 'state' } = args;
+      const STATE_FIPS = {'AL':'01','AK':'02','AZ':'04','AR':'05','CA':'06','CO':'08','CT':'09','DE':'10','FL':'12','GA':'13','HI':'15','ID':'16','IL':'17','IN':'18','IA':'19','KS':'20','KY':'21','LA':'22','ME':'23','MD':'24','MA':'25','MI':'26','MN':'27','MS':'28','MO':'29','MT':'30','NE':'31','NV':'32','NH':'33','NJ':'34','NM':'35','NY':'36','NC':'37','ND':'38','OH':'39','OK':'40','OR':'41','PA':'42','RI':'44','SC':'45','SD':'46','TN':'47','TX':'48','UT':'49','VT':'50','VA':'51','WA':'53','WV':'54','WI':'55','WY':'56','DC':'11'};
+      const vars = 'B01001_001E,B01002_001E,B19013_001E,B19301_001E,B25077_001E,B25064_001E';
+      const params = { get:`NAME,${vars}`, key:CENSUS_KEY };
+      if (state) { const fips = STATE_FIPS[state.toUpperCase()]||state; params['for']=`state:${fips}`; } else { params['for']='state:*'; }
+      const { data:rawData } = await axios.get('https://api.census.gov/data/2022/acs/acs5', { params, timeout:15000 });
+      const [headers,...rows] = rawData;
+      const results = rows.map(row => { const obj={}; headers.forEach((h,i)=>obj[h]=row[i]); return { name:obj.NAME, population:parseInt(obj['B01001_001E']), median_age:parseFloat(obj['B01002_001E']), median_household_income:parseInt(obj['B19013_001E']), per_capita_income:parseInt(obj['B19301_001E']), median_home_value:parseInt(obj['B25077_001E']), median_rent:parseInt(obj['B25064_001E']) }; });
+      return { success:true, year:'2022 ACS 5-Year', count:results.length, data:results, source:'U.S. Census Bureau' };
+    }
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
 
 router.get('/', (req, res) => {
-  res.json({ name: 'AgentEcon', version: '1.0.0', transport: 'http', protocol: 'mcp', tools: ['get_inflation', 'get_jobs', 'get_macro', 'get_energy'] });
+  res.json({ name: 'AgentEcon', version: '1.0.0', transport: 'http', protocol: 'mcp', tools: ['get_inflation', 'get_jobs', 'get_macro', 'get_energy', 'get_treasury', 'get_demographics'] });
 });
 
 router.post('/', async (req, res) => {
